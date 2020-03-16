@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <meta charset="UTF-8">
+    <title>NesMo</title>
+
+    <meta name="description" content="A full on NES dev environment from your iOS browser.">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, minimal-ui, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon-120.png">
+  	<link rel="manifest" href="webappManifest.json">
+    <link rel="stylesheet" href="css/main.css">
+    <link href="css/codemirror.css" rel="stylesheet">
+    <script src="scripts/ServiceWorker.js"></script>
+    <script src="chrScripts/jquery.min.js"></script>
+    <script src="prgScripts/codemirror.js"></script>
+    <script src="prgScripts/asm.js"></script>
+</head>
+
+<body>
+  <!-- TODO; Add help UI -->
+  <!-- TODO: Implement better UI -->
+  <!-- TODO: FIX on screen button CSS so buttons size stays at a consistent ratio and maxes out at a reasonable size on bigger screens -->
+  <!-- TODO: Ideally make the top UI a drawer -->
+
+  <div id="play">
+    <div id="tools">
+    <label for="files" class="custom-file-upload">
+      <img src='images/plus.png'>
+    </label>
+    <input type="file" id="files" name="files[]" multiple />
+    <label for="openChr" class="open-chr">
+      <img src='images/chr.png'>
+    </label>
+    <button id="openChr">Open CHR Modal</button>
+    <label for="openMetasprites" class="open-metasprites">
+      <img src='images/metasprites.png'>
+    </label>
+    <button id="openMetasprites">Open Metasprites Modal</button>
+    <label for="openPrg" class="open-prg">
+      <img src='images/prg.png'>
+    </label>
+    <button id="openPrg">Open PRG Modal</button>
+  </div>
+
+      <canvas id="nes-screen" width="256" height="240"></canvas>
+      <div id="portrait_controls">
+          <div id="buttons">
+              <div id="arrow_keys">
+                  <img src="images/up_arrow.png" height=14% width=15% id="portrait_up" oncontextmenu="return false;">
+                  </img>
+
+                  <img src="images/right_arrow.png" width=19.5% height=11% id="portrait_right" oncontextmenu="return false;">
+                  </img>
+
+                  <img src="images/down_arrow.png" height=14% width=15% id="portrait_down" oncontextmenu="return false;">
+                  </img>
+
+                  <img src="images/left_arrow.png" width=19.5% height=11% id="portrait_left" oncontextmenu="return false;">
+                  </img>
+              </div>
+
+              <div id="portrait_settings_keys">
+                  <img id="portrait_select" height=7% width=20% src="images/select_button.png" oncontextmenu="return false;">
+                  </img>
+
+                  <img id="portrait_start" height=7% width=20% src="images/start_button.png" oncontextmenu="return false;">
+                  </img>
+              </div>
+
+              <div id="portrait_action_keys">
+                  <img id="portrait_b" height=15% width= 20% src="images/b_button.png" oncontextmenu="return false;">
+
+                  </img>
+
+                  <img id="portrait_a" height=15% width= 20% src="images/a_button.png" oncontextmenu="return false;">
+                  </img>
+              </div>
+          </div>
+      </div>
+  </div>
+
+  <div id="chrModal" class="modal">
+  <!-- Modal content -->
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <canvas id="sprite-editor" width="421" height="675" oncontextmenu="return false;"></canvas>
+  </div>
+  </div>
+
+  <div id="metaspriteModal" class="modal">
+  <!-- Modal content -->
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <canvas id="metasprite-editor" width="421" height="675" oncontextmenu="return false;"></canvas>
+  </div>
+  </div>
+
+  <div id="prgModal" class="modal">
+  <!-- Modal content -->
+  <div class="modal-content">
+    <div id="registers">
+    <label>PC: </label><textarea id="PCfield" rows="1" cols="4" maxlength="4" placeholder="ffff"></textarea>
+    <label>A: </label><textarea id="Afield" rows="1" cols="2" maxlength="2" placeholder="ff"></textarea>
+    <label>X: </label><textarea id="Xfield" rows="1" cols="2" maxlength="2" placeholder="ff"></textarea>
+    <label>Y: </label><textarea id="Yfield" rows="1" cols="2" maxlength="2" placeholder="ff"></textarea>
+    <label>Flags: </label><textarea id="FLAGfield" rows="1" cols="8" maxlength="8" placeholder="00000000"></textarea>
+    <label>Stack: </label><textarea id="STACKfield" rows="1" cols="16" placeholder="00, 01" multiline wordwrap readonly></textarea>
+    <hr>
+    <div id="ram"></div>
+    <hr>
+  </div>
+
+    <span class="close">&times;</span>
+    <textarea id="asm" width="421" height="675">
+; This is placeholder text in the debugger.
+</textarea>
+  </div>
+  </div>
+
+  <script src="scripts/nesnes.js"></script>
+  <script>var emulator = new NesNes(document.getElementById('nes-screen'));</script>
+  <script type="text/javascript" data-main="scripts/MainController" src="scripts/require.js"></script>
+</body>
+</html>
