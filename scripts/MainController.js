@@ -329,7 +329,9 @@ define(["../nesasmScripts/nesasmInput",
     // Get the button that opens the modals
     var btn = document.getElementById("openChr");
     var prgBtn = document.getElementById("openPrg");
-    var metaspriteBtn = document.getElementById("openMetasprites");
+    //TODO: Add metasprite editor
+//    var metaspriteBtn = document.getElementById("openMetasprites");
+
 
     // Get the <span> element that closes the modals
     var span = document.getElementsByClassName("close")[0];
@@ -346,9 +348,12 @@ define(["../nesasmScripts/nesasmInput",
         }
     }
 
+//TODO: Add metasprite editor
+/*
     metaspriteBtn.onclick = function() {
         metaspriteModal.style.display = "block";
     }
+    */
 
     prgBtn.onclick = function() {
        if(emulator.cartridge){
