@@ -105,6 +105,21 @@ h2 { font-size: 18px; margin: 0; }
 }
 .topbar .spacer { flex: 1; }
 .topbar .build { min-width: 92px; }
+.offline-pill {
+  display: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-radius: 10px;
+  padding: 2px 8px;
+  margin-right: 2px;
+}
+body.offline .offline-pill { display: inline-block; }
+.device-status { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.device-status .ok { color: var(--ok); }
+.device-status .warn { color: var(--warn); }
+.tip { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
 
 /* ------------------------------------------------------------- layout */
 .layout { flex: 1; min-height: 0; display: flex; }

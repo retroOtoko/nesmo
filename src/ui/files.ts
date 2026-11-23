@@ -7,6 +7,7 @@ import {
 } from '../project/store';
 import { samples } from '../project/samples';
 import { h, clear, toast } from './dom';
+import { offlineStatus, onOfflineChange, isIOS, isStandalone } from '../offline';
 
 export class FilesDrawer {
   el: HTMLElement;
@@ -23,6 +24,7 @@ export class FilesDrawer {
     this.fileInput.addEventListener('change', () => this.uploadFiles());
     this.zipInput.addEventListener('change', () => this.importZip());
     app.on('project', () => this.isOpen() && this.render());
+    onOfflineChange(() => this.isOpen() && this.render());
   }
 
   isOpen() {
@@ -81,7 +83,31 @@ export class FilesDrawer {
       ...samples().map((s) => h('button', { class: 'sample', onclick: () => this.fromSample(s.name) },
         h('b', null, s.name), h('span', { class: 'muted small' }, s.description))),
       h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => this.zipInput.click() }, 'Import .zip…')),
-      h('p', { class: 'muted small' }, 'Projects are saved on this device. Export a .zip to move one between your phone and Mac.'),
+      h('h3', null, 'This device'),
+      this.deviceStatus(),
+    );
+  }
+
+  private deviceStatus() {
+    const st = offlineStatus;
+    const offlineLine = {
+      ready: h('span', { class: 'ok' }, '✓ Works offline. The whole app, assembler included, is saved here.'),
+      installing: h('span', { class: 'warn' }, 'Saving NesMo for offline use…'),
+      failed: h('span', { class: 'warn' }, "Couldn't save NesMo for offline use. Reload while online to try again."),
+      unsupported: h('span', { class: 'warn' }, "This browser can't keep NesMo offline."),
+      dev: h('span', { class: 'muted' }, 'Offline mode turns on in the deployed site.'),
+    }[st.state];
+    const storageLine = st.persisted
+      ? h('span', { class: 'ok' }, '✓ Saved projects are protected from automatic cleanup.')
+      : h('span', { class: 'muted' }, 'Saved projects stay on this device, but the browser may clear them if storage runs low. Export a .zip now and then as a backup.');
+    return h('div', { class: 'device-status' },
+      st.online ? null : h('span', { class: 'warn' }, "You're offline right now."),
+      offlineLine,
+      storageLine,
+      isIOS() && !isStandalone()
+        ? h('div', { class: 'tip' }, 'On iPhone, tap Share → Add to Home Screen to keep NesMo as an app. Safari can clear data from sites you haven\'t opened in a while, but Home Screen apps are exempt. The Home Screen app keeps its own projects, separate from Safari, so export a .zip to bring projects across.')
+        : null,
+      st.version ? h('span', { class: 'muted small' }, `Offline copy ${st.version}`) : null,
     );
   }
 

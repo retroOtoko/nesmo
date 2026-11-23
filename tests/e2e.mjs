@@ -231,6 +231,42 @@ async function screenStats(page, sel = 'canvas.screen.main') {
   await ctx.close();
 }
 
+// ---------------------------------------------------------------- offline
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(BASE);
+  await page.waitForSelector('.cm-content');
+  const ready = await page.evaluate(async () => {
+    const reg = await navigator.serviceWorker.ready;
+    const keys = await caches.keys();
+    const cache = await caches.open(keys.find((k) => k.startsWith('nesmo-')));
+    return { active: !!reg.active, cached: (await cache.keys()).length };
+  });
+  check('offline: service worker saved the app', ready.active && ready.cached >= 10, JSON.stringify(ready));
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+
+  await ctx.setOffline(true);
+  await page.reload();
+  await page.waitForSelector('.cm-content', { timeout: 15000 });
+  check('offline: page reloads with no connection', true);
+  check('offline: offline pill shows', await page.isVisible('.offline-pill'));
+  await page.tap('button.build');
+  await page.waitForFunction(() => document.querySelector('.msg-summary')?.textContent?.includes('Built'), null, { timeout: 15000 });
+  check('offline: builds with no connection', true, await page.textContent('.msg-summary'));
+  await page.waitForTimeout(600);
+  const s = await screenStats(page);
+  check('offline: game runs with no connection', s.colors >= 4, JSON.stringify(s));
+  await page.tap('.menu');
+  await page.waitForTimeout(300);
+  check('offline: drawer reports offline ready', (await page.textContent('.device-status')).includes('Works offline'));
+  await page.screenshot({ path: `${OUT}/o1-offline-drawer.png` });
+  check('offline: no page errors', errors.length === 0, errors.join(' | '));
+  await ctx.close();
+}
+
 await browser.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);

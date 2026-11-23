@@ -12,7 +12,8 @@ NesMo 1 (2020, NESASM-based) still lives in [`public/legacy`](public/legacy) and
 - **PPU viewer.** Palette RAM, both pattern tables, all four nametables with attribute grid, OAM with a sprite layout view, and decoded PPUCTRL/PPUMASK.
 - **CHR editor.** Draw 8×8 or 16×16 tiles with the game's own palettes. Edits are patched into the running game immediately (NROM). Includes a palette builder that writes the `.byte` lines for you.
 - **Reference.** All official 6502 instructions with opcodes, cycles and flags; NES registers bit by bit; CPU and PPU memory maps.
-- Projects are saved in the browser (IndexedDB). Export/import `.zip` to move a project between devices, or download the `.nes`.
+- Projects are saved in the browser (IndexedDB), and NesMo asks the browser to keep them. Export/import `.zip` to move a project between devices, or download the `.nes`.
+- **Works offline.** On the first visit a service worker saves the whole app, assembler included (about 2 MB). After that NesMo opens, builds and runs with no connection. `vite.config.ts` writes the file list into `sw.js` at build time.
 
 Keyboard on desktop: arrows/WASD, Z = B, X = A, Enter = Start, Right Shift = Select. ⌘B or ⌘Enter builds, F5 runs/pauses, F10 steps over, F11 steps in, Shift+F11 steps out.
 

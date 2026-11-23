@@ -10,6 +10,7 @@ import { PpuPanel } from './ui/ppu';
 import { ChrPanel } from './ui/chreditor';
 import { ReferencePanel } from './ui/reference';
 import { FilesDrawer } from './ui/files';
+import { initOffline } from './offline';
 import { h, clear, toast, isPhone } from './ui/dom';
 import type { BuildResult } from './toolchain/build';
 
@@ -35,6 +36,7 @@ const header = h('header', { class: 'topbar' },
   h('button', { class: 'icon menu', onclick: () => drawer.open(), title: 'Projects & files' }, '☰'),
   title,
   h('div', { class: 'spacer' }),
+  h('span', { class: 'offline-pill', title: 'No connection. Everything still works on this device.' }, 'Offline'),
   soundBtn,
   buildBtn,
 );
@@ -300,6 +302,4 @@ openInitialProject().then((p) => {
   onEmuChange();
 });
 
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  navigator.serviceWorker.register(import.meta.env.BASE_URL + 'sw.js').catch(() => {});
-}
+initOffline();
