@@ -7,6 +7,7 @@ Matt is learning NES development with the famicom.party book (ca65/ld65) and use
 - The toolchain is cc65's ca65/ld65 compiled to WASI (from 8bitworkshop), run with `@bjorn3/browser_wasi_shim` in `src/toolchain/build.ts`. That file also runs under Node for tests.
 - The emulator is jsnes 3. `src/emu/emulator.ts` runs its own frame loop (`runFrame`) so breakpoints and stepping work; read memory with `peek()`, never `cpu.load()` (side effects).
 - jsnes colors are 0xBBGGRR; use `nesRgb()` in `src/ui/ppu.ts` for 0xRRGGBB.
+- The phone controller is one SVG in `src/ui/touchpad.ts`, hit-tested with geometry in SVG units. Each touch stays bound to the control it started on. Its look follows Matt's NesMo 1 buttons: black faces, light rim, pixel lettering, grip lines on the d-pad.
 - Breakpoints are stored as `file:line` and resolved to addresses through the ld65 debug file after each build.
 - Tests: `npm test` (Node) and `node tests/e2e.mjs` against `vite preview` (headless Chrome at /usr/bin/google-chrome). Keep both passing.
 - Deploys on Vercel from GitHub (`vercel.json`).

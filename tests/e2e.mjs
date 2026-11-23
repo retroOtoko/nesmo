@@ -197,26 +197,71 @@ async function screenStats(page, sel = 'canvas.screen.main') {
   const s = await screenStats(page);
   check('phone: game renders', s.colors >= 4, JSON.stringify(s));
 
-  // touch the d-pad right zone and hold
-  const r = await page.$('.tp-r');
-  const rb = await r.boundingBox();
+  // ---- touch pad: geometry in SVG units (see src/ui/touchpad.ts)
   const cdp = await ctx.newCDPSession(page);
-  const x0 = await page.evaluate(() => window.__nesmo.emu.cpu.mem[window.__nesmo.dbg.labelToAddr.get('player_x')]);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: rb.x + rb.width / 2, y: rb.y + rb.height / 2 }] });
-  await page.waitForTimeout(500);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  const x1 = await page.evaluate(() => window.__nesmo.emu.cpu.mem[window.__nesmo.dbg.labelToAddr.get('player_x')]);
-  check('phone: touch d-pad moves the player', x1 > x0, `${x0} -> ${x1}`);
+  const ang = (-17 * Math.PI) / 180;
+  const B = { x: 272 - Math.cos(ang) * 38, y: 100 - Math.sin(ang) * 38 };
+  const A = { x: 272 + Math.cos(ang) * 38, y: 100 + Math.sin(ang) * 38 };
+  const MIDAB = { x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 };
+  const toClient = (pt) => page.evaluate(([x, y]) => {
+    const p = new DOMPoint(x, y).matrixTransform(document.querySelector('.touchpad svg').getScreenCTM());
+    return { x: p.x, y: p.y };
+  }, [pt.x, pt.y]);
+  const touch = async (type, pt) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pt ? [await toClient(pt)] : [] });
+  const ram = (label) => page.evaluate((l) => window.__nesmo.emu.cpu.mem[window.__nesmo.dbg.labelToAddr.get(l)], label);
+  const hold = async (pt, ms = 120) => { await touch('touchStart', pt); await page.waitForTimeout(ms); const b = await ram('buttons'); await touch('touchEnd'); await page.waitForTimeout(60); return b; };
+  const pressedNow = () => page.evaluate(() => [...document.querySelectorAll('.touchpad .pressed')].map((e) => e.dataset.dir || e.dataset.btn).sort().join(','));
 
-  // B -> A slide
-  const b = await (await page.$('.tp-b')).boundingBox();
-  const a = await (await page.$('.tp-a')).boundingBox();
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: b.x + b.width / 2, y: b.y + b.height / 2 }] });
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: (b.x + b.width + a.x) / 2, y: (b.y + a.y + a.height) / 2 + 2 }] });
+  const x0 = await ram('player_x');
+  await touch('touchStart', { x: 78 + 48, y: 95 });
+  await page.waitForTimeout(500);
+  const armLit = await pressedNow();
+  await touch('touchEnd');
+  const x1 = await ram('player_x');
+  check('phone: touch d-pad moves the player', x1 > x0, `${x0} -> ${x1}`);
+  check('phone: pressed d-pad arm lights up', armLit === 'right', armLit);
+  const rad = (d) => (d * Math.PI) / 180;
+  const at = (deg) => ({ x: 78 + 45 * Math.cos(rad(deg)), y: 95 + 45 * Math.sin(rad(deg)) });
+  const near = await hold(at(25));
+  const diag = await hold(at(45));
+  check('phone: d-pad 25° below right is still just right', near === 0x01, '$' + near.toString(16));
+  check('phone: d-pad diagonal presses right + down', diag === 0x05, '$' + diag.toString(16));
+
+  // finger resting between A and B presses both
+  await touch('touchStart', MIDAB);
+  await page.waitForTimeout(150);
+  const midBtns = await ram('buttons');
+  const midLit = await pressedNow();
+  await page.screenshot({ path: `${OUT}/p2b-ab-pressed.png` });
+  await touch('touchEnd');
+  check('phone: finger between A and B presses both', (midBtns & 0xc0) === 0xc0, '$' + midBtns.toString(16));
+  check('phone: A and B both show pressed', midLit === 'A,B', midLit);
+
+  // slide from B, through the gap, onto A
+  await touch('touchStart', B);
   await page.waitForTimeout(100);
-  const btns = await page.evaluate(() => window.__nesmo.emu.cpu.mem[window.__nesmo.dbg.labelToAddr.get('buttons')]);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  check('phone: sliding from B toward A holds both', (btns & 0xc0) === 0xc0, '$' + btns.toString(16));
+  const s1 = await ram('buttons');
+  await touch('touchMove', MIDAB);
+  await page.waitForTimeout(100);
+  const s2 = await ram('buttons');
+  await touch('touchMove', A);
+  await page.waitForTimeout(100);
+  const s3 = await ram('buttons');
+  await touch('touchEnd');
+  check('phone: slide B → gap → A gives B, both, A', s1 === 0x40 && s2 === 0xc0 && s3 === 0x80, [s1, s2, s3].map((v) => '$' + v.toString(16)).join(' → '));
+
+  // Controls sheet: switch the gap to "nearest button only"
+  await page.tap('.controls-btn');
+  await page.waitForSelector('.sheet.open');
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: `${OUT}/p2c-controls.png` });
+  await page.tap('.opt:has-text("Nearest button only")');
+  await page.tap('.sheet button:has-text("Done")');
+  await page.waitForTimeout(300);
+  const offBtns = await hold(MIDAB);
+  check('phone: with the setting off, the gap presses one button', offBtns === 0x40 || offBtns === 0x80, '$' + offBtns.toString(16));
+  check('phone: setting is saved', (await page.evaluate(() => localStorage.getItem('nesmo:controls'))).includes('off'));
+  await page.evaluate(() => localStorage.removeItem('nesmo:controls'));
 
   for (const v of ['debug', 'ppu', 'chr', 'ref']) {
     await page.tap(`.tabbar button[data-view="${v}"]`);

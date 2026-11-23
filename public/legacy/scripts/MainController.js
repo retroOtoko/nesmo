@@ -16,7 +16,7 @@ define(["../nesasmScripts/nesasmInput",
     "scripts/jszip.min.js"
 ], function(assembler, chrInit, prgInit, disassembler, utils, jszip) {
     //Handle file selection and get everything running
-    var NesnesController = function() {
+    var NesmoController = function() {
         emulator.emulatorDelegate = this;
         assembler.assemblerDelegate = this;
         this.nesFile = null;
@@ -24,7 +24,7 @@ define(["../nesasmScripts/nesasmInput",
         this.fnsFile = null;
     };
 
-    NesnesController.prototype.pcUpdate = function(pcValue) {
+    NesmoController.prototype.pcUpdate = function(pcValue) {
         if (prgInit.breakpoints.includes(pcValue) && !emulator.paused) {
             console.log("Breakpoint encountered at " + pcValue);
             prgBtn.onclick();
@@ -32,7 +32,7 @@ define(["../nesasmScripts/nesasmInput",
         }
     }
 
-    NesnesController.prototype.gotNESFile = function(nesFile, forFile) {
+    NesmoController.prototype.gotNESFile = function(nesFile, forFile) {
       this.nesFile = forFile.substr(0, forFile.indexOf("."));
       console.log("Controller got nes file: " + forFile);
       emulator.initCartridge(nesFile);
@@ -62,7 +62,7 @@ define(["../nesasmScripts/nesasmInput",
       return aliases;
     }
 
-    NesnesController.prototype.gotFNSFile = function(fnsFile, forFile) {
+    NesmoController.prototype.gotFNSFile = function(fnsFile, forFile) {
       this.fnsFile = forFile.substr(0, forFile.indexOf("."));
       var aliases = formatFNSFile(fnsFile);
       prgInit.addAliases(aliases);
@@ -107,13 +107,13 @@ define(["../nesasmScripts/nesasmInput",
       return output;
     }
 
-    NesnesController.prototype.gotLSTFile = function(lstFile, forFile) {
+    NesmoController.prototype.gotLSTFile = function(lstFile, forFile) {
       this.lstFile = forFile.substr(0, forFile.indexOf("."));
       var output = formatLSTFile(lstFile);
       prgInit.loadPRG(output);
     }
 
-    var instance = new NesnesController();
+    var instance = new NesmoController();
 
     function handleFileSelect(evt) {
       //Audio context can only be enabled after user input

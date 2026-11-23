@@ -1,9 +1,8 @@
-// Input: keyboard on the Mac, an on-screen pad on the phone, and the
-// Gamepad API for a Bluetooth controller. The touch pad keeps the trick from
-// NesMo 1: slide your thumb from B onto A to hold both.
+// Input: keyboard on the Mac and the Gamepad API for a Bluetooth controller.
+// The on-screen pad for phones lives in touchpad.ts. Every source feeds the
+// InputMixer, and the NES sees the union.
 import { app } from '../app';
 import { BUTTONS } from '../emu/emulator';
-import { h } from './dom';
 
 const KEYMAP: Record<string, number> = {
   ArrowUp: BUTTONS.UP, ArrowDown: BUTTONS.DOWN, ArrowLeft: BUTTONS.LEFT, ArrowRight: BUTTONS.RIGHT,
@@ -82,57 +81,4 @@ export function initGamepad() {
     requestAnimationFrame(poll);
   };
   window.addEventListener('gamepadconnected', () => requestAnimationFrame(poll), { once: true });
-}
-
-/** On-screen controller. Every touch point presses whatever zones it is over. */
-export function touchPad(): HTMLElement {
-  const zone = (cls: string, buttons: number[], label = '') =>
-    h('div', { class: 'tp-zone ' + cls, 'data-buttons': buttons.join(',') }, label);
-  const dpad = h('div', { class: 'tp-dpad' },
-    zone('tp-ul', [BUTTONS.UP, BUTTONS.LEFT]), zone('tp-u', [BUTTONS.UP]), zone('tp-ur', [BUTTONS.UP, BUTTONS.RIGHT]),
-    zone('tp-l', [BUTTONS.LEFT]), h('div', { class: 'tp-center' }), zone('tp-r', [BUTTONS.RIGHT]),
-    zone('tp-dl', [BUTTONS.DOWN, BUTTONS.LEFT]), zone('tp-d', [BUTTONS.DOWN]), zone('tp-dr', [BUTTONS.DOWN, BUTTONS.RIGHT]),
-  );
-  const ab = h('div', { class: 'tp-ab' },
-    zone('tp-b round', [BUTTONS.B], 'B'),
-    zone('tp-ba', [BUTTONS.B, BUTTONS.A]),
-    zone('tp-a round', [BUTTONS.A], 'A'),
-  );
-  const ss = h('div', { class: 'tp-ss' },
-    zone('tp-select pill', [BUTTONS.SELECT], 'SELECT'),
-    zone('tp-start pill', [BUTTONS.START], 'START'),
-  );
-  const pad = h('div', { class: 'touchpad' }, dpad, ss, ab);
-
-  const update = (e: TouchEvent) => {
-    e.preventDefault();
-    const pressed = new Set<number>();
-    for (const t of Array.from(e.touches)) {
-      const el = document.elementFromPoint(t.clientX, t.clientY) as HTMLElement | null;
-      const z = el?.closest('.tp-zone') as HTMLElement | null;
-      z?.dataset.buttons?.split(',').forEach((b) => pressed.add(+b));
-    }
-    input.set('touch', pressed);
-  };
-  for (const ev of ['touchstart', 'touchmove', 'touchend', 'touchcancel'] as const) {
-    pad.addEventListener(ev, update, { passive: false });
-  }
-  // mouse fallback so it works on a desktop browser too
-  let mouseDown = false;
-  const mouse = (e: MouseEvent) => {
-    if (!mouseDown) return input.set('touch', new Set());
-    const z = (e.target as HTMLElement).closest('.tp-zone') as HTMLElement | null;
-    input.set('touch', new Set(z?.dataset.buttons?.split(',').map(Number) ?? []));
-  };
-  pad.addEventListener('mousedown', (e) => { mouseDown = true; mouse(e); });
-  pad.addEventListener('mousemove', mouse);
-  window.addEventListener('mouseup', (e) => { if (mouseDown) { mouseDown = false; mouse(e); } });
-
-  input.listeners.add((all) => {
-    pad.querySelectorAll<HTMLElement>('.tp-zone').forEach((z) => {
-      const bs = z.dataset.buttons!.split(',').map(Number);
-      z.classList.toggle('on', bs.length === 1 && all.has(bs[0]));
-    });
-  });
-  return pad;
 }

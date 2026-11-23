@@ -4,7 +4,9 @@ import { openInitialProject, flushSave, isText } from './project/store';
 import { warmUp } from './toolchain/client';
 import { CodeEditor } from './ui/editor';
 import { Screens } from './ui/screen';
-import { touchPad, initKeyboard, initGamepad } from './ui/controller';
+import { initKeyboard, initGamepad } from './ui/controller';
+import { touchPad } from './ui/touchpad';
+import { openControlsSettings } from './ui/settings';
 import { DebuggerPanel } from './ui/debugger';
 import { PpuPanel } from './ui/ppu';
 import { ChrPanel } from './ui/chreditor';
@@ -66,6 +68,7 @@ const playBar = h('div', { class: 'play-bar' },
   h('button', { class: 'btn', onclick: () => app.emu.stepFrame(), title: 'Advance one frame' }, '⏭ Frame'),
   h('button', { class: 'btn', onclick: () => cycleSpeed(), title: 'Speed' }, h('span', { class: 'speed' }, '1×')),
   h('button', { class: 'btn', onclick: () => screenshot(), title: 'Save screenshot' }, '📷'),
+  h('button', { class: 'btn controls-btn', onclick: () => openControlsSettings(), title: 'Controls', 'aria-label': 'Controls' }, '⚙︎'),
 );
 const screenWrap = h('div', { class: 'screen-wrap' }, screens.create('screen main'), h('div', { class: 'screen-overlay' }));
 const playPane = h('section', { class: 'pane play-pane' }, screenWrap, playBar, h('div', { class: 'phone-only pad-wrap' }, touchPad()));

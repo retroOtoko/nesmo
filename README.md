@@ -7,7 +7,7 @@ NesMo 1 (2020, NESASM-based) still lives in [`public/legacy`](public/legacy) and
 ## What's in it
 
 - **ca65 + ld65 in the browser.** The cc65 assembler and linker run as WebAssembly in a web worker, so projects match what [famicom.party](https://famicom.party/book/) teaches. Every `.asm`/`.s` file that isn't pulled in by `.include` is assembled and the objects are linked with `ld65 -t nes`, or with your own `.cfg` if the project has one.
-- **Emulator.** [jsnes](https://github.com/bfirsh/jsnes) 3, with keyboard controls on desktop, an on-screen pad on the phone (slide your thumb from B onto A to hold both, as in NesMo 1) and Bluetooth gamepads.
+- **Emulator.** [jsnes](https://github.com/bfirsh/jsnes) 3, with keyboard controls on desktop, an on-screen pad on the phone and Bluetooth gamepads. The pad shows every button as you press it, and resting your thumb between A and B presses both (adjustable under ⚙︎ Controls).
 - **Debugger.** Breakpoints set from the editor gutter or the disassembly, step / step over / step out / run one frame, registers and flags (tap to edit), source lines mapped through ld65's debug file, your zero-page variables with live values, the stack, and a RAM viewer that highlights what changed.
 - **PPU viewer.** Palette RAM, both pattern tables, all four nametables with attribute grid, OAM with a sprite layout view, and decoded PPUCTRL/PPUMASK.
 - **CHR editor.** Draw 8×8 or 16×16 tiles with the game's own palettes. Edits are patched into the running game immediately (NROM). Includes a palette builder that writes the `.byte` lines for you.
