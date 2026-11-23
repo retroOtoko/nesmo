@@ -1,0 +1,14 @@
+{
+  "name": "NesMo",
+  "short_name": "NesMo",
+  "description": "NES development in your browser: ca65 assembler, emulator, debugger, PPU viewer and CHR editor.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#121419",
+  "theme_color": "#1b1e25",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
