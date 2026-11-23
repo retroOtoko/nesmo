@@ -1,0 +1,36 @@
+{
+  "name": "nesmo",
+  "private": true,
+  "version": "2.0.0",
+  "description": "NesMo 2: a browser-based NES development environment for phone and desktop",
+  "license": "GPL-3.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "tsx --test tests/toolchain.test.ts",
+    "e2e": "node tests/e2e.mjs"
+  },
+  "dependencies": {
+    "@bjorn3/browser_wasi_shim": "^0.4.2",
+    "@codemirror/autocomplete": "^6.20.4",
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/lint": "^6.9.8",
+    "@codemirror/search": "^6.7.2",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/theme-one-dark": "^6.1.3",
+    "@codemirror/view": "^6.43.15",
+    "codemirror": "^6.0.2",
+    "idb-keyval": "^6.3.0",
+    "jsnes": "^3.0.0",
+    "jszip": "^3.10.2"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.65.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  }
+}

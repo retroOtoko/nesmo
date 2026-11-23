@@ -1,27 +1,53 @@
-# NesMo
-A browser based NES development environment aimed at mobile browsers.
+# NesMo 2
 
-# Description
-NesMo aims to be a portable NES development environment useable in mobile browsers. Currently it provides the following functionality:
-- Browser based emulator, currently uses a modded version of NesNes: https://github.com/koenkivits/nesnes
-- Ability to assemble NES files using nesasm, based on nesasm-js: https://github.com/munshkr/nesasm-js
-- Ability to view and edit cartridge's character data. Edited data can be saved as a binary file.
-- Debugger, which provides ability to view and edit registers, values from 0000 - 07ff and view current program in memory.
- Program viewer and character data editor based on implementation in nodeNES: https://gutomaia.net/nodeNES/
+A browser-based NES development environment that works on an iPhone as well as on a desktop. Write 6502 assembly, build it with the real cc65 toolchain, run it, and debug it, all in the browser with nothing to install.
 
-# Installation
-Just visit the following page, this project uses WebWorkers so it should be cached and useable even when offline:
-https://retrootoko.github.io/nesmo/
+NesMo 1 (2020, NESASM-based) still lives in [`public/legacy`](public/legacy) and is served at `/legacy/`.
 
-# Compiling ASM files
-Press the icon in the upper left corner and select an ASM file to have NesMo compile the file. If the file has any includes or incbins it will ask you to select that file. Once all include files have been fed to the assembler it will assemble the ROM, which will be downloaded by your browser. Currently NewMo does not load assembled ROMs instantaneously.
+## What's in it
 
-# UI
-- Top left "Cartridge" icon: Bring up browser UI for loading NES files or assembling ASM files.
-- "CHR" icon: Bring up sprite editor. Left and right arrows at the bottom of the modal page through sprites on the cartridge, down arrow downloads edited CHR data as a binary file.
-- "PRG" icon: Brings up debugger modal. Current register values are shown and editable　(aside from the stack) at the top, followed by memory values at 0000 - 07ff, followed by the program window, which shows a disassembly of the running code, or the content of the lst or fns file if one has been loaded. The debugger will jump to and highlight the current instruction being executed, whenever opened.
-- On screen controls - browser based controller support also provided, but buttons are not currently customizable.
- - Pressing and holding the B button and then moving your thumb right will also count as a depress of the A button. Move your thumb back left to let go of the A button while still holding B.
+- **ca65 + ld65 in the browser.** The cc65 assembler and linker run as WebAssembly in a web worker, so projects match what [famicom.party](https://famicom.party/book/) teaches. Every `.asm`/`.s` file that isn't pulled in by `.include` is assembled and the objects are linked with `ld65 -t nes`, or with your own `.cfg` if the project has one.
+- **Emulator.** [jsnes](https://github.com/bfirsh/jsnes) 3, with keyboard controls on desktop, an on-screen pad on the phone (slide your thumb from B onto A to hold both, as in NesMo 1) and Bluetooth gamepads.
+- **Debugger.** Breakpoints set from the editor gutter or the disassembly, step / step over / step out / run one frame, registers and flags (tap to edit), source lines mapped through ld65's debug file, your zero-page variables with live values, the stack, and a RAM viewer that highlights what changed.
+- **PPU viewer.** Palette RAM, both pattern tables, all four nametables with attribute grid, OAM with a sprite layout view, and decoded PPUCTRL/PPUMASK.
+- **CHR editor.** Draw 8×8 or 16×16 tiles with the game's own palettes. Edits are patched into the running game immediately (NROM). Includes a palette builder that writes the `.byte` lines for you.
+- **Reference.** All official 6502 instructions with opcodes, cycles and flags; NES registers bit by bit; CPU and PPU memory maps.
+- Projects are saved in the browser (IndexedDB). Export/import `.zip` to move a project between devices, or download the `.nes`.
 
-# Modularity
-Ideally this will eventually be organized in a clean way so that it would be trivial to swap out components with those customized by others - for instance so that different emulators could be swapped in, or so that the assembler could handle cc65 instead of nesasm.
+Keyboard on desktop: arrows/WASD, Z = B, X = A, Enter = Start, Right Shift = Select. ⌘B or ⌘Enter builds, F5 runs/pauses, F10 steps over, F11 steps in, Shift+F11 steps out.
+
+## Deploying on Vercel
+
+1. In Vercel, **Add New → Project** and import this repository.
+2. Vercel reads `vercel.json` (Vite, `npm run build`, output `dist`). Nothing to configure.
+3. Every push redeploys. Add the site to your iPhone home screen for a full-screen app that also works offline after the first load.
+
+## Local development
+
+```sh
+npm install
+npm run dev          # http://localhost:5173
+npm test             # toolchain + emulator tests (Node)
+npm run build && npx vite preview --port 4173 &
+node tests/e2e.mjs   # headless Chrome checks on desktop and phone layouts
+```
+
+## Layout
+
+```
+src/toolchain/   ca65/ld65 WASI runner, worker, ld65 debug-file parser
+src/emu/         jsnes wrapper (frame loop, breakpoints, stepping), audio
+src/cpu6502/     opcode table and disassembler
+src/ui/          editor, debugger, PPU viewer, CHR editor, reference, drawer
+src/project/     IndexedDB storage and starter projects
+public/toolchain ca65.wasm / ld65.wasm
+```
+
+## Credits and licenses
+
+NesMo is GPL-3.0. It builds on:
+
+- [cc65](https://github.com/cc65/cc65) (zlib license). The WASI builds of ca65 and ld65 come from [8bitworkshop](https://github.com/sehugg/8bitworkshop).
+- [jsnes](https://github.com/bfirsh/jsnes) (Apache-2.0)
+- [CodeMirror 6](https://codemirror.net/) (MIT)
+- [browser_wasi_shim](https://github.com/bjorn3/browser_wasi_shim) (MIT/Apache-2.0)
