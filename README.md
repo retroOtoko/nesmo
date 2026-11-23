@@ -22,6 +22,10 @@ Keyboard on desktop: arrows/WASD, Z = B, X = A, Enter = Start, Right Shift = Sel
 2. Vercel reads `vercel.json` (Vite, `npm run build`, output `dist`). Nothing to configure.
 3. Every push redeploys. Add the site to your iPhone home screen for a full-screen app that also works offline after the first load.
 
+## GitHub Pages
+
+`.github/workflows/pages.yml` builds the app with `BASE_PATH=/<repo name>/` and publishes it to GitHub Pages on every push to `master` (pull requests only build and test). In the repo settings, Pages → Source must be set to **GitHub Actions**. The site lands at `https://retrootoko.github.io/nesmo/`.
+
 ## Local development
 
 ```sh
