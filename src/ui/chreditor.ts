@@ -4,11 +4,29 @@
 import { app } from '../app';
 import { hex2 } from '../cpu6502/disasm';
 import { decodeTile, writeTile, blitTile } from '../chr/chr';
-import { h, clear, toast } from './dom';
+import { h, clear, toast, isPhone } from './dom';
 import { nesRgb, cssColor, currentPalettes } from './ppu';
 
 type Mode = '8' | '16';
 type Tool = 'pen' | 'fill';
+type SheetBanks = 'both' | 'left' | 'right';
+interface SheetView { banks: SheetBanks; zoom: number }
+
+const SHEET_KEY = 'nesmo:chr-sheet';
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 6;
+const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+
+function loadSheetView(): SheetView {
+  try {
+    const v = JSON.parse(localStorage.getItem(SHEET_KEY) || 'null');
+    if (v && ['both', 'left', 'right'].includes(v.banks) && typeof v.zoom === 'number') return { banks: v.banks, zoom: clampZoom(v.zoom) };
+  } catch {
+    /* fall through to the default */
+  }
+  // On a phone, one pattern table at a time gives tiles twice the size.
+  return { banks: isPhone() ? 'left' : 'both', zoom: 1 };
+}
 
 const DEFAULT_PALS = [
   [0x0f, 0x00, 0x10, 0x30], [0x0f, 0x16, 0x27, 0x30], [0x0f, 0x1a, 0x2a, 0x30], [0x0f, 0x12, 0x22, 0x30],
@@ -31,6 +49,12 @@ export class ChrPanel {
   private fileSelect = h('select', { onchange: () => this.setFile(this.fileSelect.value) });
   private editCanvas = h('canvas', { width: 256, height: 256, class: 'pixel chr-edit' });
   private sheetCanvas = h('canvas', { width: 256, height: 128, class: 'pixel chr-sheet' });
+  private sheetScroll = h('div', { class: 'chr-sheet-scroll' }, this.sheetCanvas);
+  private sheetOff = document.createElement('canvas');
+  private sheetView: SheetView = loadSheetView();
+  private bankBtns: Record<string, HTMLButtonElement> = {};
+  private zoomBtns = new Map<number, HTMLButtonElement>();
+  private zoomLabel = h('span', { class: 'muted small zoom-label' });
   private swatches = h('div', { class: 'chr-swatches' });
   private palPicker = h('div', { class: 'chr-palpick seg' });
   private info = h('div', { class: 'muted small' });
@@ -52,6 +76,16 @@ export class ChrPanel {
       const b = h('button', { onclick: () => { this.mode = m; this.render(); } }, label);
       this.modeBtns[m] = b;
       return b;
+    };
+    const bankBtn = (b: SheetBanks, label: string) => {
+      const el = h('button', { onclick: () => this.setSheetView({ banks: b }) }, label);
+      this.bankBtns[b] = el;
+      return el;
+    };
+    const zoomBtn = (z: number) => {
+      const el = h('button', { onclick: () => this.setSheetView({ zoom: z }) }, `${z}×`);
+      this.zoomBtns.set(z, el);
+      return el;
     };
     const ppuToggle = h('label', { class: 'check' },
       h('input', { type: 'checkbox', checked: true, onchange: (e: Event) => { this.usePpuPals = (e.target as HTMLInputElement).checked; this.render(); } }),
@@ -82,9 +116,16 @@ export class ChrPanel {
           ),
         ),
       ),
-      h('h3', null, 'Tiles'),
-      h('div', { class: 'canvas-wrap' }, this.sheetCanvas),
-      h('div', { class: 'muted small' }, 'Left: $0000   Right: $1000. Tap a tile to edit it.'),
+      h('div', { class: 'row-between' },
+        h('h3', null, 'Tiles'),
+        h('div', { class: 'seg' }, bankBtn('left', '$0000'), bankBtn('right', '$1000'), bankBtn('both', 'Both')),
+      ),
+      h('div', { class: 'row-between sheet-zoom' },
+        h('div', { class: 'seg' }, ...[1, 2, 3, 4].map(zoomBtn)),
+        this.zoomLabel,
+      ),
+      this.sheetScroll,
+      h('div', { class: 'muted small' }, 'Tap a tile to edit it. Pinch the table (or use the trackpad on a Mac) to zoom.'),
       h('h3', null, 'Palette builder'),
       h('div', { class: 'muted small' }, 'Tap a slot, then a color. Copy the result into your RODATA.'),
       this.builder,
@@ -98,14 +139,7 @@ export class ChrPanel {
     );
 
     this.setupDrawing();
-    this.sheetCanvas.addEventListener('click', (e) => {
-      const r = this.sheetCanvas.getBoundingClientRect();
-      const x = ((e.clientX - r.left) / r.width) * 256;
-      const y = ((e.clientY - r.top) / r.height) * 128;
-      const bank = x >= 128 ? 256 : 0;
-      this.tile = bank + Math.floor(y / 8) * 16 + Math.floor((x % 128) / 8);
-      this.render();
-    });
+    this.setupSheet();
 
     app.on('project', () => this.refreshFiles());
     app.on('file', (f) => f === this.file && this.render());
@@ -238,26 +272,191 @@ export class ChrPanel {
       ` · ${this.file}`;
   }
 
+  // ------------------------------------------------------------ tile sheet
+  private shownBanks(): number[] {
+    const b = this.sheetView.banks;
+    return b === 'both' ? [0, 1] : [b === 'left' ? 0 : 1];
+  }
+
+  private setSheetView(change: Partial<SheetView>) {
+    if (change.zoom !== undefined) change.zoom = clampZoom(change.zoom);
+    this.sheetView = { ...this.sheetView, ...change };
+    try {
+      localStorage.setItem(SHEET_KEY, JSON.stringify(this.sheetView));
+    } catch {
+      /* private mode */
+    }
+    if (change.banks) {
+      // jump to the table being shown if the selection is in the other one
+      const banks = this.shownBanks();
+      if (!banks.includes(this.tile >= 256 ? 1 : 0)) this.tile = banks[0] * 256 + (this.tile & 0xff);
+    }
+    this.render();
+    requestAnimationFrame(() => this.scrollToSelection());
+  }
+
+  private updateSheetControls() {
+    const z = this.sheetView.zoom;
+    Object.entries(this.bankBtns).forEach(([k, b]) => b.classList.toggle('on', k === this.sheetView.banks));
+    this.zoomBtns.forEach((b, k) => b.classList.toggle('on', Math.abs(k - z) < 0.05));
+    this.zoomLabel.textContent = `${z.toFixed(z % 1 ? 1 : 0)}×`;
+    this.sheetCanvas.style.width = `${z * 100}%`;
+  }
+
   private renderSheet() {
+    this.updateSheetControls();
     const data = this.data();
-    const ctx = this.sheetCanvas.getContext('2d')!;
-    const img = ctx.createImageData(256, 128);
+    const banks = this.shownBanks();
+    const nesW = 128 * banks.length;
+    // Draw at roughly one canvas pixel per screen pixel so grid lines stay sharp.
+    const cssW = (this.sheetScroll.clientWidth || 360) * this.sheetView.zoom;
+    const S = Math.max(1, Math.min(8, Math.round((cssW / nesW) * (window.devicePixelRatio || 1))));
+    const canvas = this.sheetCanvas;
+    if (canvas.width !== nesW * S || canvas.height !== 128 * S) {
+      canvas.width = nesW * S;
+      canvas.height = 128 * S;
+    }
+    const off = this.sheetOff;
+    off.width = nesW;
+    off.height = 128;
+    const octx = off.getContext('2d')!;
+    const img = octx.createImageData(nesW, 128);
     if (data) {
       const pal = this.palettes()[this.palIndex].map(nesRgb);
-      for (let t = 0; t < 512 && t * 16 < data.length; t++) {
-        const bank = t >= 256 ? 1 : 0;
-        const i = t & 0xff;
-        blitTile(img, bank * 128 + (i % 16) * 8, Math.floor(i / 16) * 8, decodeTile(data, t * 16), pal);
-      }
+      banks.forEach((bank, col) => {
+        for (let i = 0; i < 256; i++) {
+          const t = bank * 256 + i;
+          if (t * 16 >= data.length) break;
+          blitTile(img, col * 128 + (i % 16) * 8, Math.floor(i / 16) * 8, decodeTile(data, t * 16), pal);
+        }
+      });
     }
-    ctx.putImageData(img, 0, 0);
+    octx.putImageData(img, 0, 0);
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, 0, 0, nesW * S, 128 * S);
+
+    if (S >= 3) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = 8 * S; x < nesW * S; x += 8 * S) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, 128 * S); }
+      for (let y = 8 * S; y < 128 * S; y += 8 * S) { ctx.moveTo(0, y + 0.5); ctx.lineTo(nesW * S, y + 0.5); }
+      ctx.stroke();
+    }
+    if (banks.length === 2) {
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.fillRect(128 * S - Math.max(1, S / 4), 0, Math.max(2, S / 2), 128 * S);
+    }
+
     const t = this.tile;
-    const sx = (t >= 256 ? 128 : 0) + (t & 15) * 8;
-    const sy = ((t & 0xff) >> 4) * 8;
-    const size = this.mode === '8' ? 8 : 16;
-    ctx.strokeStyle = '#ffd400';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(sx + 0.5, sy + 0.5, size - 1, size - 1);
+    const col = banks.indexOf(t >= 256 ? 1 : 0);
+    if (col >= 0) {
+      const size = (this.mode === '8' ? 8 : 16) * S;
+      const lw = Math.max(1, Math.round(S / 2));
+      ctx.strokeStyle = '#ffd400';
+      ctx.lineWidth = lw;
+      ctx.strokeRect((col * 128 + (t & 15) * 8) * S + lw / 2, ((t & 0xff) >> 4) * 8 * S + lw / 2, size - lw, size - lw);
+    }
+  }
+
+  private scrollToSelection() {
+    const banks = this.shownBanks();
+    const col = banks.indexOf(this.tile >= 256 ? 1 : 0);
+    if (col < 0) return;
+    const r = this.sheetCanvas.getBoundingClientRect();
+    const fx = (col * 128 + (this.tile & 15) * 8 + 4) / (128 * banks.length);
+    const fy = (((this.tile & 0xff) >> 4) * 8 + 4) / 128;
+    this.sheetScroll.scrollLeft = fx * r.width - this.sheetScroll.clientWidth / 2;
+    this.sheetScroll.scrollTop = fy * r.height - this.sheetScroll.clientHeight / 2;
+  }
+
+  /** Zoom while keeping the point under (ax, ay) where it is on screen. */
+  private zoomAround(z: number, fx: number, fy: number, ax: number, ay: number) {
+    this.sheetView.zoom = clampZoom(z);
+    this.updateSheetControls();
+    const wr = this.sheetScroll.getBoundingClientRect();
+    const r = this.sheetCanvas.getBoundingClientRect();
+    this.sheetScroll.scrollLeft = fx * r.width - (ax - wr.left);
+    this.sheetScroll.scrollTop = fy * r.height - (ay - wr.top);
+  }
+
+  private commitZoom() {
+    this.setSheetViewQuiet();
+    this.renderSheet();
+  }
+
+  private setSheetViewQuiet() {
+    try {
+      localStorage.setItem(SHEET_KEY, JSON.stringify(this.sheetView));
+    } catch {
+      /* private mode */
+    }
+  }
+
+  private setupSheet() {
+    let suppressClickUntil = 0;
+    this.sheetCanvas.addEventListener('click', (e) => {
+      if (performance.now() < suppressClickUntil) return;
+      const banks = this.shownBanks();
+      const r = this.sheetCanvas.getBoundingClientRect();
+      const fx = (e.clientX - r.left) / r.width;
+      const fy = (e.clientY - r.top) / r.height;
+      const colAll = Math.min(16 * banks.length - 1, Math.max(0, Math.floor(fx * 16 * banks.length)));
+      const row = Math.min(15, Math.max(0, Math.floor(fy * 16)));
+      const bank = banks[Math.floor(colAll / 16)];
+      this.tile = bank * 256 + row * 16 + (colAll % 16);
+      this.render();
+    });
+
+    // Two-finger pinch on the table.
+    const wrap = this.sheetScroll;
+    let pinch: { d0: number; z0: number; fx: number; fy: number } | null = null;
+    const mid = (e: TouchEvent) => ({
+      x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+      y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+      d: Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY),
+    });
+    wrap.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 2) return;
+      e.preventDefault();
+      const m = mid(e);
+      const r = this.sheetCanvas.getBoundingClientRect();
+      pinch = { d0: Math.max(m.d, 1), z0: this.sheetView.zoom, fx: (m.x - r.left) / r.width, fy: (m.y - r.top) / r.height };
+    }, { passive: false });
+    wrap.addEventListener('touchmove', (e) => {
+      if (!pinch || e.touches.length !== 2) return;
+      e.preventDefault();
+      const m = mid(e);
+      this.zoomAround(pinch.z0 * (m.d / pinch.d0), pinch.fx, pinch.fy, m.x, m.y);
+    }, { passive: false });
+    const endPinch = (e: TouchEvent) => {
+      if (!pinch || e.touches.length >= 2) return;
+      pinch = null;
+      suppressClickUntil = performance.now() + 400;
+      this.commitZoom();
+    };
+    wrap.addEventListener('touchend', endPinch);
+    wrap.addEventListener('touchcancel', endPinch);
+    // Safari would otherwise zoom the whole page.
+    for (const ev of ['gesturestart', 'gesturechange']) wrap.addEventListener(ev, (e) => e.preventDefault());
+
+    // Trackpad pinch on a Mac arrives as ctrl + wheel.
+    let wheelTimer: ReturnType<typeof setTimeout> | null = null;
+    wrap.addEventListener('wheel', (e) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const r = this.sheetCanvas.getBoundingClientRect();
+      this.zoomAround(this.sheetView.zoom * Math.exp(-e.deltaY / 100), (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height, e.clientX, e.clientY);
+      if (wheelTimer) clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(() => this.commitZoom(), 150);
+    }, { passive: false });
+
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    window.addEventListener('resize', () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => this.visible() && this.renderSheet(), 200);
+    });
   }
 
   // --------------------------------------------------------------- drawing

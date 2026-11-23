@@ -268,6 +268,64 @@ async function screenStats(page, sel = 'canvas.screen.main') {
     await page.waitForTimeout(400);
     await page.screenshot({ path: `${OUT}/p3-${v}.png` });
   }
+  // ---- CHR tile sheet: one table, tap mapping, zoom, pinch, table switch
+  await page.tap('.tabbar button[data-view="chr"]');
+  await page.waitForTimeout(300);
+  const sheetInfo = () => page.evaluate(() => {
+    const c = document.querySelector('.chr-sheet');
+    const r = c.getBoundingClientRect();
+    return { w: r.width, h: r.height, wrap: document.querySelector('.chr-sheet-scroll').clientWidth, aspect: c.width / c.height, zoom: document.querySelector('.zoom-label').textContent };
+  });
+  const tileCenter = (col, row) => page.evaluate(([col, row]) => {
+    const r = document.querySelector('.chr-sheet').getBoundingClientRect();
+    return { x: r.left + ((col + 0.5) * r.width) / 16, y: r.top + ((row + 0.5) * r.height) / 16 };
+  }, [col, row]);
+  const chrInfo = () => page.evaluate(() => document.querySelector('.chr-left .muted').textContent);
+  await page.evaluate(() => document.querySelector('.chr-sheet-scroll').scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(150);
+  let si = await sheetInfo();
+  check('phone: tile sheet shows one table at a time', Math.abs(si.aspect - 1) < 0.01, JSON.stringify(si));
+  let pt = await tileCenter(2, 1);
+  await page.touchscreen.tap(pt.x, pt.y);
+  await page.waitForTimeout(100);
+  check('phone: tapping the sheet selects that tile', (await chrInfo()).startsWith('Tile $12'), await chrInfo());
+  await page.tap('.sheet-zoom button:has-text("3×")');
+  await page.waitForTimeout(300);
+  si = await sheetInfo();
+  check('phone: 3× zoom makes the table 3 times wider', Math.abs(si.w - 3 * si.wrap) < 3, JSON.stringify(si));
+  pt = await tileCenter(3, 1);
+  const visible = await page.evaluate(([x, y]) => {
+    const r = document.querySelector('.chr-sheet-scroll').getBoundingClientRect();
+    return x > r.left && x < r.right && y > r.top && y < r.bottom;
+  }, [pt.x, pt.y]);
+  check('phone: zooming keeps the selected tile in view', visible);
+  await page.touchscreen.tap(pt.x, pt.y);
+  await page.waitForTimeout(100);
+  check('phone: tapping a zoomed sheet selects the right tile', (await chrInfo()).startsWith('Tile $13'), await chrInfo());
+  await page.screenshot({ path: `${OUT}/p4-chr-zoom.png` });
+
+  await page.tap('.sheet-zoom button:has-text("2×")');
+  await page.waitForTimeout(200);
+  const wr = await page.evaluate(() => { const r = document.querySelector('.chr-sheet-scroll').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + Math.min(r.height, 300) / 2 }; });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: wr.x - 40, y: wr.y, id: 1 }, { x: wr.x + 40, y: wr.y, id: 2 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: wr.x - 50, y: wr.y, id: 1 }, { x: wr.x + 50, y: wr.y, id: 2 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: wr.x - 60, y: wr.y, id: 1 }, { x: wr.x + 60, y: wr.y, id: 2 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await page.waitForTimeout(200);
+  si = await sheetInfo();
+  const z = parseFloat(si.zoom);
+  check('phone: pinching out zooms the sheet', z > 2.7 && z < 3.3, si.zoom);
+  check('phone: pinch did not change the selected tile', (await chrInfo()).startsWith('Tile $13'), await chrInfo());
+
+  await page.tap('.chr button:has-text("$1000")');
+  await page.waitForTimeout(150);
+  check('phone: $1000 shows the second table', (await chrInfo()).includes('table $1000'), await chrInfo());
+  await page.tap('.chr button:has-text("Both")');
+  await page.waitForTimeout(150);
+  si = await sheetInfo();
+  check('phone: Both shows the two tables side by side', Math.abs(si.aspect - 2) < 0.01, JSON.stringify(si));
+  await page.evaluate(() => localStorage.removeItem('nesmo:chr-sheet'));
+
   check('phone: debugger mini screen shows', await page.evaluate(() => {
     document.querySelector('.tabbar button[data-view="debug"]').click();
     return !!document.querySelector('.mini-screen canvas');
