@@ -418,7 +418,19 @@ body.kb .tabbar { display: none !important; }
 .chr-swatches { display: flex; gap: 6px; }
 .swatch.big { height: 44px; font-size: 13px; }
 .chr-tools { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
-.chr-sheet { cursor: pointer; }
+.chr-sheet-scroll {
+  max-width: 520px;
+  max-height: 62vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
+  background: #000;
+  border-radius: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+.chr-sheet-scroll .chr-sheet { width: 100%; max-width: none; cursor: pointer; border-radius: 0; }
+.sheet-zoom { margin-top: -2px; }
+.zoom-label { font-family: var(--mono); min-width: 36px; text-align: right; }
 .pal-out { font-size: 12px; background: var(--panel); border-radius: 6px; padding: 8px; overflow-x: auto; color: #b8c1d6; }
 .nes-grid { display: grid; grid-template-columns: repeat(16, 1fr); gap: 2px; max-width: 520px; }
 .nes-color { aspect-ratio: 1; border: none; border-radius: 3px; font-family: var(--mono); font-size: 9px; padding: 0; }
